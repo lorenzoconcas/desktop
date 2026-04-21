@@ -268,6 +268,10 @@ import {
 import { Banner, BannerType } from '../../models/banner'
 import { ComputedAction } from '../../models/computed-action'
 import {
+  IRepositoryListFolder,
+  RepositoryListGroupMode,
+} from '../../models/repository-list-grouping'
+import {
   createDesktopStashEntry,
   getLastDesktopStashEntryForBranch,
   popStashEntry,
@@ -422,6 +426,75 @@ const confirmCommitMessageOverrideKey: string = 'confirmCommitMessageOverride'
 const uncommittedChangesStrategyKey = 'uncommittedChangesStrategyKind'
 
 const externalEditorKey: string = 'externalEditor'
+const repositoryListGroupModeKey = 'repository-list-group-mode'
+const repositoryListFoldersKey = 'repository-list-folders'
+const repositoryListFolderAssignmentsKey = 'repository-list-folder-assignments'
+
+function getRepositoryListFolders(): ReadonlyArray<IRepositoryListFolder> {
+  const folders = getObject<ReadonlyArray<IRepositoryListFolder>>(
+    repositoryListFoldersKey
+  )
+
+  if (!Array.isArray(folders)) {
+    return []
+  }
+
+  return folders
+    .filter(
+      (folder): folder is IRepositoryListFolder =>
+        typeof folder.id === 'string' &&
+        folder.id.length > 0 &&
+        typeof folder.name === 'string' &&
+        folder.name.trim().length > 0
+    )
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function saveRepositoryListFolders(
+  folders: ReadonlyArray<IRepositoryListFolder>
+) {
+  setObject(repositoryListFoldersKey, [...folders])
+}
+
+function getRepositoryListFolderAssignments(
+  folders: ReadonlyArray<IRepositoryListFolder>
+) {
+  const folderIDs = new Set(folders.map(f => f.id))
+  const assignments = getObject<Record<string, string>>(
+    repositoryListFolderAssignmentsKey
+  )
+  const lookup = new Map<number, string>()
+
+  if (
+    assignments == null ||
+    typeof assignments !== 'object' ||
+    Array.isArray(assignments)
+  ) {
+    return lookup
+  }
+
+  for (const [repositoryID, folderID] of Object.entries(assignments)) {
+    const numericRepositoryID = parseInt(repositoryID, 10)
+
+    if (!isNaN(numericRepositoryID) && folderIDs.has(folderID)) {
+      lookup.set(numericRepositoryID, folderID)
+    }
+  }
+
+  return lookup
+}
+
+function saveRepositoryListFolderAssignments(
+  assignments: ReadonlyMap<number, string>
+) {
+  const serialized: Record<string, string> = {}
+
+  for (const [repositoryID, folderID] of assignments) {
+    serialized[repositoryID.toString()] = folderID
+  }
+
+  setObject(repositoryListFolderAssignmentsKey, serialized)
+}
 
 const imageDiffTypeDefault = ImageDiffType.TwoUp
 const imageDiffTypeKey = 'image-diff-type'
@@ -584,6 +657,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   /** The current repository filter text */
   private repositoryFilterText: string = ''
+  private repositoryListGroupMode = RepositoryListGroupMode.Owner
+  private repositoryListFolders: ReadonlyArray<IRepositoryListFolder> = []
+  private repositoryListFolderAssignmentLookup = new Map<number, string>()
 
   private currentMergeTreePromise: Promise<void> | null = null
 
@@ -1122,6 +1198,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
       showSideBySideDiff: this.showSideBySideDiff,
       selectedShell: this.selectedShell,
       repositoryFilterText: this.repositoryFilterText,
+      repositoryListGroupMode: this.repositoryListGroupMode,
+      repositoryListFolders: this.repositoryListFolders,
+      repositoryListFolderAssignmentLookup:
+        this.repositoryListFolderAssignmentLookup,
       resolvedExternalEditor: this.resolvedExternalEditor,
       selectedCloneRepositoryTab: this.selectedCloneRepositoryTab,
       selectedBranchesTab: this.selectedBranchesTab,
@@ -2329,6 +2409,12 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     const shellValue = localStorage.getItem(shellKey)
     this.selectedShell = shellValue ? parseShell(shellValue) : DefaultShell
+    this.repositoryListGroupMode =
+      getEnum(repositoryListGroupModeKey, RepositoryListGroupMode) ??
+      RepositoryListGroupMode.Owner
+    this.repositoryListFolders = getRepositoryListFolders()
+    this.repositoryListFolderAssignmentLookup =
+      getRepositoryListFolderAssignments(this.repositoryListFolders)
 
     this.updateMenuLabelsForSelectedRepository()
 
@@ -7179,6 +7265,76 @@ export class AppStore extends TypedBaseStore<IAppState> {
       setNumber(tabSizeKey, tabSize)
       this.emitUpdate()
     }
+
+    return Promise.resolve()
+  }
+
+  public _setRepositoryListGroupMode(groupMode: RepositoryListGroupMode) {
+    this.repositoryListGroupMode = groupMode
+    localStorage.setItem(repositoryListGroupModeKey, groupMode)
+    this.emitUpdate()
+
+    return Promise.resolve()
+  }
+
+  public _createRepositoryListFolder(name: string, repository: Repository) {
+    const trimmedName = name.trim()
+    if (trimmedName.length === 0) {
+      return Promise.resolve()
+    }
+
+    const existingFolder = this.repositoryListFolders.find(
+      f => f.name.toLocaleLowerCase() === trimmedName.toLocaleLowerCase()
+    )
+    const folder =
+      existingFolder ??
+      ({ id: crypto.randomUUID(), name: trimmedName } as const)
+
+    if (existingFolder === undefined) {
+      this.repositoryListFolders = [...this.repositoryListFolders, folder].sort(
+        (a, b) => a.name.localeCompare(b.name)
+      )
+      saveRepositoryListFolders(this.repositoryListFolders)
+    }
+
+    return this._moveRepositoryToListFolder(repository, folder.id)
+  }
+
+  public _moveRepositoryToListFolder(repository: Repository, folderID: string) {
+    if (!this.repositoryListFolders.some(f => f.id === folderID)) {
+      return Promise.resolve()
+    }
+
+    this.repositoryListFolderAssignmentLookup = new Map(
+      this.repositoryListFolderAssignmentLookup
+    )
+    this.repositoryListFolderAssignmentLookup.set(repository.id, folderID)
+    saveRepositoryListFolderAssignments(
+      this.repositoryListFolderAssignmentLookup
+    )
+
+    if (this.repositoryListGroupMode !== RepositoryListGroupMode.Folder) {
+      this.repositoryListGroupMode = RepositoryListGroupMode.Folder
+      localStorage.setItem(
+        repositoryListGroupModeKey,
+        RepositoryListGroupMode.Folder
+      )
+    }
+
+    this.emitUpdate()
+
+    return Promise.resolve()
+  }
+
+  public _removeRepositoryFromListFolder(repository: Repository) {
+    this.repositoryListFolderAssignmentLookup = new Map(
+      this.repositoryListFolderAssignmentLookup
+    )
+    this.repositoryListFolderAssignmentLookup.delete(repository.id)
+    saveRepositoryListFolderAssignments(
+      this.repositoryListFolderAssignmentLookup
+    )
+    this.emitUpdate()
 
     return Promise.resolve()
   }

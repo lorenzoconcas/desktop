@@ -4,6 +4,10 @@ import { groupRepositories } from '../../src/ui/repositories-list/group-reposito
 import { Repository, ILocalRepositoryState } from '../../src/models/repository'
 import { CloningRepository } from '../../src/models/cloning-repository'
 import { gitHubRepoFixture } from '../helpers/github-repo-builder'
+import {
+  IRepositoryListFolder,
+  RepositoryListGroupMode,
+} from '../../src/models/repository-list-grouping'
 
 describe('repository list grouping', () => {
   const repositories: Array<Repository | CloningRepository> = [
@@ -91,6 +95,94 @@ describe('repository list grouping', () => {
     assert.equal(items[0].repository.path, 'a')
     assert.equal(items[1].repository.path, 'c')
     assert.equal(items[2].repository.path, 'z')
+  })
+
+  it('groups repositories by virtual folder assignments', () => {
+    const repoA = new Repository('/Users/me/Work/z-repo', 1, null, false)
+    const repoB = new Repository(
+      '/Users/me/Personal/a-repo',
+      2,
+      gitHubRepoFixture({ owner: 'me', name: 'a-repo' }),
+      false
+    )
+    const repoC = new CloningRepository(
+      '/Users/me/Work/cloning',
+      'https://github.com/desktop/cloning.git'
+    )
+    const folders: ReadonlyArray<IRepositoryListFolder> = [
+      { id: 'work', name: 'Work' },
+      { id: 'personal', name: 'Personal' },
+    ]
+    const assignments = new Map<number, string>([
+      [repoA.id, 'work'],
+      [repoB.id, 'personal'],
+    ])
+
+    const grouped = groupRepositories(
+      [repoA, repoB, repoC],
+      cache,
+      [],
+      RepositoryListGroupMode.Folder,
+      folders,
+      assignments
+    )
+
+    assert.equal(grouped.length, 3)
+
+    assert.equal(grouped[0].identifier.kind, 'folder')
+    assert.equal((grouped[0].identifier as any).folder.name, 'Personal')
+    assert.equal(grouped[0].items.length, 1)
+    assert.equal(
+      grouped[0].items[0].repository.path,
+      '/Users/me/Personal/a-repo'
+    )
+
+    assert.equal(grouped[1].identifier.kind, 'folder')
+    assert.equal((grouped[1].identifier as any).folder.name, 'Work')
+    assert.equal(grouped[1].items.length, 1)
+    assert.equal(grouped[1].items[0].repository.path, '/Users/me/Work/z-repo')
+
+    assert.equal(grouped[2].identifier.kind, 'other')
+    assert.equal(grouped[2].items.length, 1)
+    assert.equal(grouped[2].items[0].repository.path, '/Users/me/Work/cloning')
+  })
+
+  it('disambiguates duplicate repository names in folder groups', () => {
+    const repoA = new Repository(
+      '/Users/me/Work/repo-one',
+      1,
+      gitHubRepoFixture({ owner: 'user1', name: 'repo' }),
+      false
+    )
+    const repoB = new Repository(
+      '/Users/me/Work/repo-two',
+      2,
+      gitHubRepoFixture({ owner: 'user2', name: 'repo' }),
+      false
+    )
+    const folders: ReadonlyArray<IRepositoryListFolder> = [
+      { id: 'work', name: 'Work' },
+    ]
+    const assignments = new Map<number, string>([
+      [repoA.id, 'work'],
+      [repoB.id, 'work'],
+    ])
+
+    const grouped = groupRepositories(
+      [repoA, repoB],
+      cache,
+      [],
+      RepositoryListGroupMode.Folder,
+      folders,
+      assignments
+    )
+
+    assert.equal(grouped.length, 1)
+    assert.equal(grouped[0].identifier.kind, 'folder')
+    assert.equal(grouped[0].items[0].text[0], 'repo')
+    assert(grouped[0].items[0].needsDisambiguation)
+    assert.equal(grouped[0].items[1].text[0], 'repo')
+    assert(grouped[0].items[1].needsDisambiguation)
   })
 
   it('only disambiguates Enterprise repositories', () => {

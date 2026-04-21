@@ -77,6 +77,7 @@ import {
   setNumberFormatPreference,
 } from '../../models/formatting-preferences'
 import { enableFormattingPreferences } from '../../lib/feature-flag'
+import { RepositoryListGroupMode } from '../../models/repository-list-grouping'
 
 interface IPreferencesProps {
   readonly dispatcher: Dispatcher
@@ -103,6 +104,7 @@ interface IPreferencesProps {
   readonly selectedShell: Shell
   readonly selectedTheme: ApplicationTheme
   readonly selectedTabSize: number
+  readonly repositoryListGroupMode: RepositoryListGroupMode
   readonly useCustomEditor: boolean
   readonly customEditor: ICustomIntegration | null
   readonly useCustomShell: boolean
@@ -161,6 +163,7 @@ interface IPreferencesState {
 
   readonly initiallySelectedTheme: ApplicationTheme
   readonly initiallySelectedTabSize: number
+  readonly initiallySelectedRepositoryListGroupMode: RepositoryListGroupMode
 
   readonly isLoadingGitConfig: boolean
 
@@ -235,6 +238,8 @@ export class Preferences extends React.Component<
       repositoryIndicatorsEnabled: this.props.repositoryIndicatorsEnabled,
       initiallySelectedTheme: this.props.selectedTheme,
       initiallySelectedTabSize: this.props.selectedTabSize,
+      initiallySelectedRepositoryListGroupMode:
+        this.props.repositoryListGroupMode,
       isLoadingGitConfig: true,
       underlineLinks: this.props.underlineLinks,
       showDiffCheckMarks: this.props.showDiffCheckMarks,
@@ -329,6 +334,14 @@ export class Preferences extends React.Component<
     }
     if (this.state.initiallySelectedTabSize !== this.props.selectedTabSize) {
       this.onSelectedTabSizeChanged(this.state.initiallySelectedTabSize)
+    }
+    if (
+      this.state.initiallySelectedRepositoryListGroupMode !==
+      this.props.repositoryListGroupMode
+    ) {
+      this.onRepositoryListGroupModeChanged(
+        this.state.initiallySelectedRepositoryListGroupMode
+      )
     }
 
     this.props.onDismissed()
@@ -570,6 +583,10 @@ export class Preferences extends React.Component<
             onSelectedThemeChanged={this.onSelectedThemeChanged}
             selectedTabSize={this.props.selectedTabSize}
             onSelectedTabSizeChanged={this.onSelectedTabSizeChanged}
+            repositoryListGroupMode={this.props.repositoryListGroupMode}
+            onRepositoryListGroupModeChanged={
+              this.onRepositoryListGroupModeChanged
+            }
             selectedDateFormat={
               this.state.selectedDateFormat ?? getDateFormatPreference()
             }
@@ -854,6 +871,12 @@ export class Preferences extends React.Component<
 
   private onSelectedTabSizeChanged = (tabSize: number) => {
     this.props.dispatcher.setSelectedTabSize(tabSize)
+  }
+
+  private onRepositoryListGroupModeChanged = (
+    groupMode: RepositoryListGroupMode
+  ) => {
+    this.props.dispatcher.setRepositoryListGroupMode(groupMode)
   }
 
   private renderFooter() {

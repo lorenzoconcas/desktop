@@ -7,6 +7,7 @@ import {
   DefaultEditorLabel,
   DefaultShellLabel,
 } from '../lib/context-menu'
+import { IRepositoryListFolder } from '../../models/repository-list-grouping'
 
 interface IRepositoryListItemContextMenuConfig {
   repository: Repositoryish
@@ -20,6 +21,14 @@ interface IRepositoryListItemContextMenuConfig {
   onRemoveRepository: (repository: Repositoryish) => void
   onChangeRepositoryAlias: (repository: Repository) => void
   onRemoveRepositoryAlias: (repository: Repository) => void
+  onCreateRepositoryListFolder: (repository: Repository) => void
+  onMoveRepositoryToListFolder: (
+    repository: Repository,
+    folderID: string
+  ) => void
+  onRemoveRepositoryFromListFolder: (repository: Repository) => void
+  repositoryListFolders: ReadonlyArray<IRepositoryListFolder>
+  repositoryListFolderAssignmentLookup: ReadonlyMap<number, string>
 }
 
 export const generateRepositoryListContextMenu = (
@@ -38,6 +47,7 @@ export const generateRepositoryListContextMenu = (
 
   const items: ReadonlyArray<IMenuItem> = [
     ...buildAliasMenuItems(config),
+    ...buildFolderMenuItems(config),
     {
       label: __DARWIN__ ? 'Copy Repo Name' : 'Copy repo name',
       action: () => clipboard.writeText(repository.name),
@@ -75,6 +85,58 @@ export const generateRepositoryListContextMenu = (
   ]
 
   return items
+}
+
+const buildFolderMenuItems = (
+  config: IRepositoryListItemContextMenuConfig
+): ReadonlyArray<IMenuItem> => {
+  const { repository } = config
+
+  if (!(repository instanceof Repository)) {
+    return []
+  }
+
+  const assignedFolderID = config.repositoryListFolderAssignmentLookup.get(
+    repository.id
+  )
+  const folders = config.repositoryListFolders
+  const submenu: Array<IMenuItem> = [
+    {
+      label: __DARWIN__ ? 'New Folder…' : 'New folder…',
+      action: () => config.onCreateRepositoryListFolder(repository),
+    },
+  ]
+
+  if (folders.length > 0) {
+    submenu.push({ type: 'separator' })
+
+    for (const folder of folders) {
+      submenu.push({
+        label: folder.name,
+        type: 'checkbox',
+        checked: assignedFolderID === folder.id,
+        action: () =>
+          config.onMoveRepositoryToListFolder(repository, folder.id),
+      })
+    }
+  }
+
+  if (assignedFolderID !== undefined) {
+    submenu.push(
+      { type: 'separator' },
+      {
+        label: __DARWIN__ ? 'Remove From Folder' : 'Remove from folder',
+        action: () => config.onRemoveRepositoryFromListFolder(repository),
+      }
+    )
+  }
+
+  return [
+    {
+      label: __DARWIN__ ? 'Move to Folder' : 'Move to folder',
+      submenu,
+    },
+  ]
 }
 
 const buildAliasMenuItems = (

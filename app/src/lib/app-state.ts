@@ -57,6 +57,10 @@ import { IAPIRepoRuleset } from './api'
 import { ICustomIntegration } from './custom-integration'
 import { Emoji } from './emoji'
 import { IUpdateState } from '../ui/lib/update-store'
+import {
+  IRepositoryListFolder,
+  RepositoryListGroupMode,
+} from '../models/repository-list-grouping'
 
 export enum SelectionType {
   Repository,
@@ -289,6 +293,15 @@ export interface IAppState {
 
   /** The current repository filter text. */
   readonly repositoryFilterText: string
+
+  /** How repositories should be grouped in the repository list. */
+  readonly repositoryListGroupMode: RepositoryListGroupMode
+
+  /** User-created virtual folders shown in the repository list. */
+  readonly repositoryListFolders: ReadonlyArray<IRepositoryListFolder>
+
+  /** Repository list virtual folder assignments, keyed by repository id. */
+  readonly repositoryListFolderAssignmentLookup: ReadonlyMap<number, string>
 
   /** The currently selected tab for Clone Repository. */
   readonly selectedCloneRepositoryTab: CloneRepositoryTab

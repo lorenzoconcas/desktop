@@ -26,6 +26,10 @@ import { generateRepositoryListContextMenu } from '../repositories-list/reposito
 import { SectionFilterList } from '../lib/section-filter-list'
 import { assertNever } from '../../lib/fatal-error'
 import { IAheadBehind } from '../../models/branch'
+import {
+  IRepositoryListFolder,
+  RepositoryListGroupMode,
+} from '../../models/repository-list-grouping'
 
 const BlankSlateImage = encodePathAsUrl(__dirname, 'static/empty-no-repo.svg')
 
@@ -33,6 +37,9 @@ interface IRepositoriesListProps {
   readonly selectedRepository: Repositoryish | null
   readonly repositories: ReadonlyArray<Repositoryish>
   readonly recentRepositories: ReadonlyArray<number>
+  readonly repositoryListGroupMode: RepositoryListGroupMode
+  readonly repositoryListFolders: ReadonlyArray<IRepositoryListFolder>
+  readonly repositoryListFolderAssignmentLookup: ReadonlyMap<number, string>
 
   /** A cache of the latest repository state values, keyed by the repository id */
   readonly localRepositoryStateLookup: ReadonlyMap<
@@ -60,6 +67,18 @@ interface IRepositoriesListProps {
 
   /** Called when the repository should be opened in an external editor */
   readonly onOpenInExternalEditor: (repository: Repositoryish) => void
+
+  /** Called when the repository should be assigned to a new virtual folder. */
+  readonly onCreateRepositoryListFolder: (repository: Repository) => void
+
+  /** Called when the repository should be assigned to an existing virtual folder. */
+  readonly onMoveRepositoryToListFolder: (
+    repository: Repository,
+    folderID: string
+  ) => void
+
+  /** Called when the repository should be removed from its virtual folder. */
+  readonly onRemoveRepositoryFromListFolder: (repository: Repository) => void
 
   /** The current external editor selected by the user */
   readonly externalEditorLabel?: string
@@ -121,14 +140,20 @@ export class RepositoriesList extends React.Component<
     (
       repositories: ReadonlyArray<Repositoryish> | null,
       localRepositoryStateLookup: ReadonlyMap<number, ILocalRepositoryState>,
-      recentRepositories: ReadonlyArray<number>
+      recentRepositories: ReadonlyArray<number>,
+      repositoryListGroupMode: RepositoryListGroupMode,
+      repositoryListFolders: ReadonlyArray<IRepositoryListFolder>,
+      repositoryListFolderAssignmentLookup: ReadonlyMap<number, string>
     ) =>
       repositories === null
         ? []
         : groupRepositories(
             repositories,
             localRepositoryStateLookup,
-            recentRepositories
+            recentRepositories,
+            repositoryListGroupMode,
+            repositoryListFolders,
+            repositoryListFolderAssignmentLookup
           )
   )
 
@@ -249,6 +274,8 @@ export class RepositoriesList extends React.Component<
       return group.owner.login
     } else if (kind === 'recent') {
       return 'Recent'
+    } else if (kind === 'folder') {
+      return group.folder.name
     } else {
       assertNever(kind, `Unknown repository group kind ${kind}`)
     }
@@ -296,6 +323,13 @@ export class RepositoriesList extends React.Component<
       externalEditorLabel: this.props.externalEditorLabel,
       onChangeRepositoryAlias: this.onChangeRepositoryAlias,
       onRemoveRepositoryAlias: this.onRemoveRepositoryAlias,
+      onCreateRepositoryListFolder: this.props.onCreateRepositoryListFolder,
+      onMoveRepositoryToListFolder: this.props.onMoveRepositoryToListFolder,
+      onRemoveRepositoryFromListFolder:
+        this.props.onRemoveRepositoryFromListFolder,
+      repositoryListFolders: this.props.repositoryListFolders,
+      repositoryListFolderAssignmentLookup:
+        this.props.repositoryListFolderAssignmentLookup,
       onViewOnGitHub: this.props.onViewOnGitHub,
       repository: item.repository,
       shellLabel: this.props.shellLabel,
@@ -318,7 +352,10 @@ export class RepositoriesList extends React.Component<
     const groups = this.getRepositoryGroups(
       this.props.repositories,
       this.props.localRepositoryStateLookup,
-      this.props.recentRepositories
+      this.props.recentRepositories,
+      this.props.repositoryListGroupMode,
+      this.props.repositoryListFolders,
+      this.props.repositoryListFolderAssignmentLookup
     )
 
     // So there's two types of selection at play here. There's the repository
@@ -347,6 +384,10 @@ export class RepositoriesList extends React.Component<
           invalidationProps={{
             repositories: this.props.repositories,
             filterText: this.props.filterText,
+            repositoryListGroupMode: this.props.repositoryListGroupMode,
+            repositoryListFolders: this.props.repositoryListFolders,
+            repositoryListFolderAssignmentLookup:
+              this.props.repositoryListFolderAssignmentLookup,
           }}
           onItemContextMenu={this.onItemContextMenu}
           getGroupAriaLabel={this.getGroupAriaLabelGetter(groups)}

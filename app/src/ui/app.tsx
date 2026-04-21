@@ -136,6 +136,7 @@ import { CommitDragElement } from './drag-elements/commit-drag-element'
 import classNames from 'classnames'
 import { MoveToApplicationsFolder } from './move-to-applications-folder'
 import { ChangeRepositoryAlias } from './change-repository-alias/change-repository-alias-dialog'
+import { CreateRepositoryListFolder } from './repositories-list/create-repository-list-folder-dialog'
 import { ThankYou } from './thank-you'
 import {
   getUserContributions,
@@ -1591,6 +1592,7 @@ export class App extends React.Component<IAppProps, IAppState> {
             selectedShell={this.state.selectedShell}
             selectedTheme={this.state.selectedTheme}
             selectedTabSize={this.state.selectedTabSize}
+            repositoryListGroupMode={this.state.repositoryListGroupMode}
             useCustomEditor={this.state.useCustomEditor}
             customEditor={this.state.customEditor}
             useCustomShell={this.state.useCustomShell}
@@ -2113,6 +2115,15 @@ export class App extends React.Component<IAppProps, IAppState> {
       case PopupType.ChangeRepositoryAlias: {
         return (
           <ChangeRepositoryAlias
+            dispatcher={this.props.dispatcher}
+            repository={popup.repository}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
+      case PopupType.CreateRepositoryListFolder: {
+        return (
+          <CreateRepositoryListFolder
             dispatcher={this.props.dispatcher}
             repository={popup.repository}
             onDismissed={onPopupDismissedFn}
@@ -2934,6 +2945,11 @@ export class App extends React.Component<IAppProps, IAppState> {
         onSelectionChanged={this.onSelectionChanged}
         repositories={this.state.repositories}
         recentRepositories={this.state.recentRepositories}
+        repositoryListGroupMode={this.state.repositoryListGroupMode}
+        repositoryListFolders={this.state.repositoryListFolders}
+        repositoryListFolderAssignmentLookup={
+          this.state.repositoryListFolderAssignmentLookup
+        }
         localRepositoryStateLookup={this.state.localRepositoryStateLookup}
         askForConfirmationOnRemoveRepository={
           this.state.askForConfirmationOnRepositoryRemoval
@@ -2945,6 +2961,9 @@ export class App extends React.Component<IAppProps, IAppState> {
         onOpenInExternalEditor={this.openInExternalEditor}
         externalEditorLabel={this.externalEditorLabel}
         shellLabel={useCustomShell ? undefined : selectedShell}
+        onCreateRepositoryListFolder={this.onCreateRepositoryListFolder}
+        onMoveRepositoryToListFolder={this.onMoveRepositoryToListFolder}
+        onRemoveRepositoryFromListFolder={this.onRemoveRepositoryFromListFolder}
         dispatcher={this.props.dispatcher}
       />
     )
@@ -3018,6 +3037,24 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
 
     shell.showFolderContents(repository.path)
+  }
+
+  private onCreateRepositoryListFolder = (repository: Repository) => {
+    this.props.dispatcher.showPopup({
+      type: PopupType.CreateRepositoryListFolder,
+      repository,
+    })
+  }
+
+  private onMoveRepositoryToListFolder = (
+    repository: Repository,
+    folderID: string
+  ) => {
+    this.props.dispatcher.moveRepositoryToListFolder(repository, folderID)
+  }
+
+  private onRemoveRepositoryFromListFolder = (repository: Repository) => {
+    this.props.dispatcher.removeRepositoryFromListFolder(repository)
   }
 
   private onRepositoryDropdownStateChanged = (newState: DropdownState) => {
@@ -3130,6 +3167,12 @@ export class App extends React.Component<IAppProps, IAppState> {
       externalEditorLabel: this.externalEditorLabel,
       onChangeRepositoryAlias: onChangeRepositoryAlias,
       onRemoveRepositoryAlias: onRemoveRepositoryAlias,
+      onCreateRepositoryListFolder: this.onCreateRepositoryListFolder,
+      onMoveRepositoryToListFolder: this.onMoveRepositoryToListFolder,
+      onRemoveRepositoryFromListFolder: this.onRemoveRepositoryFromListFolder,
+      repositoryListFolders: this.state.repositoryListFolders,
+      repositoryListFolderAssignmentLookup:
+        this.state.repositoryListFolderAssignmentLookup,
       onViewOnGitHub: this.viewOnGitHub,
       repository: repository,
       shellLabel: this.state.useCustomShell

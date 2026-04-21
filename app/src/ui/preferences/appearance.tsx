@@ -22,6 +22,7 @@ import {
   numberFormatToKey,
 } from '../../models/formatting-preferences'
 import { formatNumber } from '../../lib/format-number'
+import { RepositoryListGroupMode } from '../../models/repository-list-grouping'
 
 interface IAppearanceProps {
   readonly selectedTheme: ApplicationTheme
@@ -36,6 +37,10 @@ interface IAppearanceProps {
   readonly onSelectedNumberFormatChanged: (format: INumberFormat) => void
   readonly preferAbsoluteDates: boolean
   readonly onPreferAbsoluteDatesChanged: (value: boolean) => void
+  readonly repositoryListGroupMode: RepositoryListGroupMode
+  readonly onRepositoryListGroupModeChanged: (
+    groupMode: RepositoryListGroupMode
+  ) => void
 }
 
 interface IAppearanceState {
@@ -129,6 +134,21 @@ export class Appearance extends React.Component<
     event: React.FormEvent<HTMLInputElement>
   ) => {
     this.props.onPreferAbsoluteDatesChanged(event.currentTarget.checked)
+  }
+
+  private onRepositoryListGroupModeChanged = (
+    event: React.FormEvent<HTMLSelectElement>
+  ) => {
+    const value = event.currentTarget.value
+
+    if (
+      value === RepositoryListGroupMode.Owner ||
+      value === RepositoryListGroupMode.Folder
+    ) {
+      this.props.onRepositoryListGroupModeChanged(
+        value as RepositoryListGroupMode
+      )
+    }
   }
 
   public renderThemeSwatch = (theme: ApplicationTheme) => {
@@ -261,6 +281,23 @@ export class Appearance extends React.Component<
     )
   }
 
+  private renderRepositoryList() {
+    return (
+      <div className="appearance-section">
+        <h2 id="repository-list-heading">Repository list</h2>
+
+        <Select
+          label={__DARWIN__ ? 'Group Repositories By' : 'Group repositories by'}
+          value={this.props.repositoryListGroupMode}
+          onChange={this.onRepositoryListGroupModeChanged}
+        >
+          <option value={RepositoryListGroupMode.Owner}>Account owner</option>
+          <option value={RepositoryListGroupMode.Folder}>Virtual folder</option>
+        </Select>
+      </div>
+    )
+  }
+
   private renderSelectedTabSize() {
     const availableTabSizes: number[] = [1, 2, 3, 4, 5, 6, 8, 10, 12]
 
@@ -287,6 +324,7 @@ export class Appearance extends React.Component<
     return (
       <DialogContent>
         {this.renderSelectedTheme()}
+        {this.renderRepositoryList()}
         {this.renderFormatting()}
         {this.renderSelectedTabSize()}
       </DialogContent>

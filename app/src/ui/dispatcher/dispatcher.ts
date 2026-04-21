@@ -131,6 +131,7 @@ import { ICustomIntegration } from '../../lib/custom-integration'
 import { isAbsolute } from 'path'
 import { CLIAction } from '../../lib/cli-action'
 import { BypassReasonType } from '../secret-scanning/bypass-push-protection-dialog'
+import { RepositoryListGroupMode } from '../../models/repository-list-grouping'
 
 /**
  * An error handler function.
@@ -2527,6 +2528,22 @@ export class Dispatcher {
    */
   public setSelectedTabSize(tabSize: number) {
     return this.appStore._setSelectedTabSize(tabSize)
+  }
+
+  public setRepositoryListGroupMode(groupMode: RepositoryListGroupMode) {
+    return this.appStore._setRepositoryListGroupMode(groupMode)
+  }
+
+  public createRepositoryListFolder(name: string, repository: Repository) {
+    return this.appStore._createRepositoryListFolder(name, repository)
+  }
+
+  public moveRepositoryToListFolder(repository: Repository, folderID: string) {
+    return this.appStore._moveRepositoryToListFolder(repository, folderID)
+  }
+
+  public removeRepositoryFromListFolder(repository: Repository) {
+    return this.appStore._removeRepositoryFromListFolder(repository)
   }
 
   /**

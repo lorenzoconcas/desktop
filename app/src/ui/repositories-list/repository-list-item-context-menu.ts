@@ -2,6 +2,8 @@ import { Repository } from '../../models/repository'
 import { IMenuItem } from '../../lib/menu-item'
 import { Repositoryish } from './group-repositories'
 import { clipboard } from 'electron'
+import { IFoundEditor } from '../../lib/editors/found-editor'
+import { getAvailableEditors } from '../../lib/editors/lookup'
 import {
   RevealInFileManagerLabel,
   DefaultEditorLabel,
@@ -29,6 +31,13 @@ interface IRepositoryListItemContextMenuConfig {
   onRemoveRepositoryFromListFolder: (repository: Repository) => void
   repositoryListFolders: ReadonlyArray<IRepositoryListFolder>
   repositoryListFolderAssignmentLookup: ReadonlyMap<number, string>
+}
+
+interface IRepositoryListFolderContextMenuConfig {
+  readonly commonParentPath: string | null
+  readonly onOpenInSelectedExternalEditor: (
+    editor: string
+  ) => Promise<void> | void
 }
 
 export const generateRepositoryListContextMenu = (
@@ -83,6 +92,54 @@ export const generateRepositoryListContextMenu = (
       action: () => config.onRemoveRepository(repository),
     },
   ]
+
+  return items
+}
+
+export const generateRepositoryListFolderContextMenu = async (
+  config: IRepositoryListFolderContextMenuConfig
+) => {
+  let availableEditors: ReadonlyArray<IFoundEditor<string>> = []
+
+  try {
+    availableEditors = await getAvailableEditors()
+  } catch (error) {
+    log.error('Could not determine available external editors', error)
+  }
+
+  return buildRepositoryListFolderContextMenu(config, availableEditors)
+}
+
+export const buildRepositoryListFolderContextMenu = (
+  config: IRepositoryListFolderContextMenuConfig,
+  availableEditors: ReadonlyArray<IFoundEditor<string>>
+): ReadonlyArray<IMenuItem> => {
+  const items: Array<IMenuItem> = []
+
+  if (config.commonParentPath !== null) {
+    items.push(
+      {
+        label: config.commonParentPath,
+        enabled: false,
+      },
+      { type: 'separator' }
+    )
+  }
+
+  if (availableEditors.length === 0) {
+    items.push({
+      label: __DARWIN__ ? 'No Editors Available' : 'No editors available',
+      enabled: false,
+    })
+    return items
+  }
+
+  items.push(
+    ...availableEditors.map(({ editor }) => ({
+      label: `Open in ${editor}`,
+      action: () => config.onOpenInSelectedExternalEditor(editor),
+    }))
+  )
 
   return items
 }

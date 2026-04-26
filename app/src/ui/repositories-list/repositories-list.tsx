@@ -1,4 +1,5 @@
 import * as React from 'react'
+import * as Path from 'path'
 
 import { commitGrammar, RepositoryListItem } from './repository-list-item'
 import {
@@ -22,7 +23,10 @@ import { encodePathAsUrl } from '../../lib/path'
 import { TooltippedContent } from '../lib/tooltipped-content'
 import memoizeOne from 'memoize-one'
 import { KeyboardShortcut } from '../keyboard-shortcut/keyboard-shortcut'
-import { generateRepositoryListContextMenu } from '../repositories-list/repository-list-item-context-menu'
+import {
+  generateRepositoryListContextMenu,
+  generateRepositoryListFolderContextMenu,
+} from '../repositories-list/repository-list-item-context-menu'
 import { SectionFilterList } from '../lib/section-filter-list'
 import { assertNever } from '../../lib/fatal-error'
 import { IAheadBehind } from '../../models/branch'
@@ -283,17 +287,33 @@ export class RepositoriesList extends React.Component<
 
   private renderGroupHeader = (group: RepositoryListGroup) => {
     const label = this.getGroupLabel(group)
+    const tooltip =
+      group.kind === 'folder' ? this.getFolderGroupTooltip(group) : label
 
-    return (
+    const header = (
       <TooltippedContent
         key={getGroupKey(group)}
         className="filter-list-group-header"
-        tooltip={label}
+        tooltip={tooltip}
         onlyWhenOverflowed={true}
         tagName="div"
       >
         {label}
       </TooltippedContent>
+    )
+
+    if (group.kind !== 'folder') {
+      return header
+    }
+
+    return (
+      <div
+        key={getGroupKey(group)}
+        data-folder-id={group.folder.id}
+        onContextMenu={this.onFolderGroupContextMenu}
+      >
+        {header}
+      </div>
     )
   }
 
@@ -313,6 +333,10 @@ export class RepositoriesList extends React.Component<
   ) => {
     event.preventDefault()
 
+    this.showItemContextMenu(item)
+  }
+
+  private showItemContextMenu(item: IRepositoryListItem) {
     const items = generateRepositoryListContextMenu({
       onRemoveRepository: this.props.onRemoveRepository,
       onShowRepository: this.props.onShowRepository,
@@ -336,6 +360,136 @@ export class RepositoriesList extends React.Component<
     })
 
     showContextualMenu(items)
+  }
+
+  private getCurrentGroups() {
+    return this.getRepositoryGroups(
+      this.props.repositories,
+      this.props.localRepositoryStateLookup,
+      this.props.recentRepositories,
+      this.props.repositoryListGroupMode,
+      this.props.repositoryListFolders,
+      this.props.repositoryListFolderAssignmentLookup
+    )
+  }
+
+  private getRepositoriesForGroup(group: RepositoryListGroup) {
+    const groupKey = getGroupKey(group)
+    const match = this.getCurrentGroups().find(
+      currentGroup => getGroupKey(currentGroup.identifier) === groupKey
+    )
+
+    return (
+      match?.items
+        .map(item => item.repository)
+        .filter((repository): repository is Repository => {
+          return repository instanceof Repository
+        }) ?? []
+    )
+  }
+
+  private getCommonParentPath(repositories: ReadonlyArray<Repository>) {
+    if (repositories.length === 0) {
+      return null
+    }
+
+    const commonParentPath = Path.dirname(repositories[0].path)
+
+    return repositories.every(
+      repository => Path.dirname(repository.path) === commonParentPath
+    )
+      ? commonParentPath
+      : null
+  }
+
+  private getFolderGroupTooltip(
+    group: Extract<RepositoryListGroup, { kind: 'folder' }>
+  ) {
+    const commonParentPath = this.getCommonParentPath(
+      this.getRepositoriesForGroup(group)
+    )
+
+    if (commonParentPath === null) {
+      return group.folder.name
+    }
+
+    return (
+      <>
+        <div>
+          <strong>{group.folder.name}</strong>
+        </div>
+        <div>{commonParentPath}</div>
+      </>
+    )
+  }
+
+  private onFolderGroupContextMenu = (
+    event: React.MouseEvent<HTMLDivElement>
+  ) => {
+    const folderID = event.currentTarget.dataset.folderId
+
+    if (folderID === undefined) {
+      return
+    }
+
+    const group = this.getCurrentGroups()
+      .map(currentGroup => currentGroup.identifier)
+      .find(
+        (
+          identifier
+        ): identifier is Extract<RepositoryListGroup, { kind: 'folder' }> =>
+          identifier.kind === 'folder' && identifier.folder.id === folderID
+      )
+
+    if (group === undefined) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    void this.showFolderGroupContextMenu(group)
+  }
+
+  private async showFolderGroupContextMenu(
+    group: Extract<RepositoryListGroup, { kind: 'folder' }>
+  ) {
+    const repositories = this.getRepositoriesForGroup(group)
+    const commonParentPath = this.getCommonParentPath(repositories)
+    const items = await generateRepositoryListFolderContextMenu({
+      commonParentPath,
+      onOpenInSelectedExternalEditor: editor =>
+        this.openFolderGroupInSelectedExternalEditor(
+          repositories,
+          editor,
+          commonParentPath
+        ),
+    })
+
+    showContextualMenu(items)
+  }
+
+  private async openFolderGroupInSelectedExternalEditor(
+    repositories: ReadonlyArray<Repository>,
+    editor: string,
+    commonParentPath: string | null
+  ) {
+    if (commonParentPath !== null) {
+      await this.props.dispatcher.openInSelectedExternalEditor(
+        commonParentPath,
+        editor,
+        null
+      )
+      return
+    }
+
+    for (const repository of repositories) {
+      await this.props.dispatcher.openInSelectedExternalEditor(
+        repository.path,
+        editor,
+        null
+      )
+    }
   }
 
   private getItemAriaLabel = (item: IRepositoryListItem) => item.repository.name

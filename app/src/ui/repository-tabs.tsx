@@ -10,6 +10,7 @@ interface IRepositoryTabsProps {
   readonly selectedRepository: Repository | null
   readonly onTabClicked: (repository: Repository) => void
   readonly onTabClosed: (repository: Repository) => void
+  readonly location?: 'title-bar' | 'toolbar'
 }
 
 export class RepositoryTabs extends React.PureComponent<IRepositoryTabsProps> {
@@ -18,10 +19,15 @@ export class RepositoryTabs extends React.PureComponent<IRepositoryTabsProps> {
       return null
     }
 
+    const location = this.props.location ?? 'toolbar'
+
     return (
       <div
         id="open-repository-tabs"
-        className="repository-tabs"
+        className={classNames('repository-tabs', {
+          'in-title-bar': location === 'title-bar',
+          'in-toolbar-region': location === 'toolbar',
+        })}
         role="tablist"
         aria-label="Open repositories"
       >
@@ -33,7 +39,10 @@ export class RepositoryTabs extends React.PureComponent<IRepositoryTabsProps> {
   private renderTab = (repository: Repository) => {
     const selected = this.props.selectedRepository?.id === repository.id
     const title = repository.alias ?? repository.name
-    const className = classNames('repository-tab', { selected })
+    const className = classNames('repository-tab', {
+      selected,
+      'in-title-bar': this.props.location === 'title-bar',
+    })
 
     return (
       <div className={className} key={repository.id}>

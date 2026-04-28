@@ -1,3 +1,5 @@
+@import '../mixins';
+
 .repository-tabs {
   display: flex;
   align-items: stretch;
@@ -8,6 +10,25 @@
   overflow-x: auto;
   overflow-y: hidden;
   flex: 0 0 auto;
+
+  &.in-title-bar {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: var(--spacing-third);
+    padding: 0 var(--spacing-half);
+    background: transparent;
+    border-bottom: none;
+    -webkit-app-region: no-drag;
+    overflow-x: hidden;
+
+    @include darwin {
+      padding-left: 72px;
+    }
+  }
+
+  &.in-toolbar-region {
+    order: -1;
+  }
 }
 
 .repository-tab {
@@ -26,6 +47,24 @@
 
   &:not(.selected):hover {
     background: var(--tab-bar-hover-background-color);
+  }
+
+  &.in-title-bar {
+    height: 100%;
+    max-width: 220px;
+    border-bottom: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--toolbar-button-secondary-color);
+
+    &.selected {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--toolbar-text-color);
+    }
+
+    &:not(.selected):hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
   }
 }
 
@@ -51,11 +90,21 @@
   &:focus-visible {
     outline-offset: -3px;
   }
+
+  .repository-tab.in-title-bar & {
+    height: 100%;
+    padding: 0 8px 0 10px;
+    font-size: var(--font-size);
+  }
 }
 
 .repository-tab-icon {
   flex: 0 0 auto;
   color: var(--tab-bar-active-color);
+
+  .repository-tab.in-title-bar & {
+    color: currentColor;
+  }
 }
 
 .repository-tab-title {
@@ -78,5 +127,15 @@
 
   &:focus-visible {
     outline-offset: -3px;
+  }
+
+  .repository-tab.in-title-bar & {
+    width: 22px;
+    height: 100%;
+    color: inherit;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
   }
 }

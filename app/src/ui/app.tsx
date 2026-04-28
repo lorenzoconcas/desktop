@@ -1419,8 +1419,26 @@ export class App extends React.Component<IAppProps, IAppState> {
         windowZoomFactor={this.state.windowZoomFactor}
       >
         {this.renderAppMenuBar()}
+        {this.canRenderRepositoryTabsInTitleBar() &&
+          this.renderRepositoryTabs('title-bar')}
       </TitleBar>
     )
+  }
+
+  private canRenderRepositoryTabsInTitleBar() {
+    if (__LINUX__ || this.inNoRepositoriesViewState()) {
+      return false
+    }
+
+    if (this.state.openRepositoryTabs.length === 0) {
+      return false
+    }
+
+    if (this.state.windowState !== 'full-screen') {
+      return true
+    }
+
+    return this.state.currentFoldout?.type === FoldoutType.AppMenu && __WIN32__
   }
 
   private onPopupDismissed = (popupId: number) => {
@@ -2922,9 +2940,10 @@ export class App extends React.Component<IAppProps, IAppState> {
         id="desktop-app-contents"
         className={this.getDesktopAppContentsClassNames()}
       >
+        {!this.canRenderRepositoryTabsInTitleBar() &&
+          this.renderRepositoryTabs('toolbar')}
         {this.renderToolbar()}
         {this.renderBanner()}
-        {this.renderRepositoryTabs()}
         {this.renderRepository()}
         {this.renderPopups()}
         {this.renderDragElement()}
@@ -2932,7 +2951,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     )
   }
 
-  private renderRepositoryTabs() {
+  private renderRepositoryTabs(location: 'title-bar' | 'toolbar') {
     if (
       this.inNoRepositoriesViewState() ||
       this.state.openRepositoryTabs.length === 0
@@ -2951,6 +2970,7 @@ export class App extends React.Component<IAppProps, IAppState> {
         selectedRepository={selectedRepository}
         onTabClicked={this.onRepositoryTabClicked}
         onTabClosed={this.onRepositoryTabClosed}
+        location={location}
       />
     )
   }

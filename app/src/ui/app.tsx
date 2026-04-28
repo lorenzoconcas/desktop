@@ -1426,7 +1426,7 @@ export class App extends React.Component<IAppProps, IAppState> {
   }
 
   private canRenderRepositoryTabsInTitleBar() {
-    if (__LINUX__ || this.inNoRepositoriesViewState()) {
+    if (__WIN32__ || __LINUX__ || this.inNoRepositoriesViewState()) {
       return false
     }
 
@@ -1434,11 +1434,7 @@ export class App extends React.Component<IAppProps, IAppState> {
       return false
     }
 
-    if (this.state.windowState !== 'full-screen') {
-      return true
-    }
-
-    return this.state.currentFoldout?.type === FoldoutType.AppMenu && __WIN32__
+    return this.state.windowState !== 'full-screen'
   }
 
   private onPopupDismissed = (popupId: number) => {

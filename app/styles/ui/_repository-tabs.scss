@@ -1,0 +1,82 @@
+.repository-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  padding: 0 var(--spacing-half);
+  background: var(--box-border-color);
+  border-bottom: 1px solid var(--box-border-color);
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 0 0 auto;
+}
+
+.repository-tab {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 240px;
+  background: var(--box-background-color);
+  color: var(--text-color);
+  border-bottom: 2px solid transparent;
+  flex: 0 0 auto;
+
+  &.selected {
+    border-bottom-color: var(--tab-bar-active-color);
+  }
+
+  &:not(.selected):hover {
+    background: var(--tab-bar-hover-background-color);
+  }
+}
+
+.repository-tab-button,
+.repository-tab-close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+}
+
+.repository-tab-button {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-half);
+  min-width: 0;
+  padding: 0 var(--spacing);
+  height: 34px;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-sans-serif);
+  flex: 1 1 auto;
+
+  &:focus-visible {
+    outline-offset: -3px;
+  }
+}
+
+.repository-tab-icon {
+  flex: 0 0 auto;
+  color: var(--tab-bar-active-color);
+}
+
+.repository-tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repository-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 34px;
+  flex: 0 0 auto;
+
+  &:hover {
+    background: var(--box-hover-background-color);
+  }
+
+  &:focus-visible {
+    outline-offset: -3px;
+  }
+}

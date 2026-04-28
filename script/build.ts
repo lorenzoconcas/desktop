@@ -353,8 +353,18 @@ function copyDependencies() {
     )
 
     const copilotDestination = path.resolve(outRoot, 'copilot')
+    const copilotNodeModulesDir = path.join(copilotPkgDir, 'node_modules')
+
+    rmSync(copilotDestination, { recursive: true, force: true })
     cpSync(copilotPkgDir, copilotDestination, {
       recursive: true,
+      verbatimSymlinks: true,
+      // Desktop runs Copilot by importing its bundled index.js directly,
+      // so the package manager's transient node_modules/.bin symlinks are
+      // unnecessary here and can break incremental builds.
+      filter: src =>
+        src !== copilotNodeModulesDir &&
+        !src.startsWith(copilotNodeModulesDir + path.sep),
     })
 
     const nonValidPlatforms = ['darwin', 'linux', 'win32'].filter(

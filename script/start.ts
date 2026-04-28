@@ -4,7 +4,7 @@ import HotMiddleware from 'webpack-hot-middleware'
 
 import { forceUnwrap as u } from '../app/src/lib/fatal-error'
 
-import configs from '../app/webpack.development'
+import configs from '../app/webpack.development.config'
 
 import { run } from './run'
 import { createServer } from 'http'

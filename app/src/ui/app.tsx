@@ -45,6 +45,7 @@ import { TitleBar, ZoomInfo, FullScreenInfo } from './window'
 
 import { RepositoriesList } from './repositories-list'
 import { RepositoryView } from './repository'
+import { RepositoryTabs } from './repository-tabs'
 import { RenameBranch } from './rename-branch'
 import { DeleteBranch, DeleteRemoteBranch } from './delete-branch'
 import { CloningRepositoryView } from './cloning-repository'
@@ -2923,10 +2924,34 @@ export class App extends React.Component<IAppProps, IAppState> {
       >
         {this.renderToolbar()}
         {this.renderBanner()}
+        {this.renderRepositoryTabs()}
         {this.renderRepository()}
         {this.renderPopups()}
         {this.renderDragElement()}
       </div>
+    )
+  }
+
+  private renderRepositoryTabs() {
+    if (
+      this.inNoRepositoriesViewState() ||
+      this.state.openRepositoryTabs.length === 0
+    ) {
+      return null
+    }
+
+    const selectedRepository =
+      this.state.selectedState?.repository instanceof Repository
+        ? this.state.selectedState.repository
+        : null
+
+    return (
+      <RepositoryTabs
+        repositories={this.state.openRepositoryTabs}
+        selectedRepository={selectedRepository}
+        onTabClicked={this.onRepositoryTabClicked}
+        onTabClosed={this.onRepositoryTabClosed}
+      />
     )
   }
 
@@ -3622,6 +3647,14 @@ export class App extends React.Component<IAppProps, IAppState> {
   private onSelectionChanged = (repository: Repository | CloningRepository) => {
     this.props.dispatcher.selectRepository(repository)
     this.props.dispatcher.closeFoldout(FoldoutType.Repository)
+  }
+
+  private onRepositoryTabClicked = (repository: Repository) => {
+    this.props.dispatcher.selectRepository(repository)
+  }
+
+  private onRepositoryTabClosed = (repository: Repository) => {
+    this.props.dispatcher.closeOpenRepositoryTab(repository)
   }
 
   private onViewCommitOnGitHub = async (SHA: string, filePath?: string) => {

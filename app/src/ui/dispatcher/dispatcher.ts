@@ -298,6 +298,11 @@ export class Dispatcher {
     return this.appStore._selectRepository(repository)
   }
 
+  /** Close an open repository tab. */
+  public closeOpenRepositoryTab(repository: Repository): Promise<void> {
+    return this.appStore._closeOpenRepositoryTab(repository)
+  }
+
   /** Change the selected section in the repository. */
   public changeRepositorySection(
     repository: Repository,

@@ -102,6 +102,11 @@ export interface IAppState {
   readonly selectedState: PossibleSelections | null
 
   /**
+   * The repositories currently pinned in the tab strip.
+   */
+  readonly openRepositoryTabs: ReadonlyArray<Repository>
+
+  /**
    * The state of the ongoing (if any) sign in process. See SignInState
    * and SignInStore for more details. Null if no current sign in flow
    * is active. Sign in flows are initiated through the dispatcher methods

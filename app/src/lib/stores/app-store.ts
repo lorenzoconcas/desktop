@@ -374,6 +374,7 @@ import { getRepoHooks } from '../hooks/get-repo-hooks'
 const LastSelectedRepositoryIDKey = 'last-selected-repository-id'
 
 const RecentRepositoriesKey = 'recently-selected-repositories'
+const OpenRepositoryTabsKey = 'open-repository-tabs'
 /**
  *  maximum number of repositories shown in the "Recent" repositories group
  *  in the repository switcher dropdown
@@ -562,6 +563,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private accounts: ReadonlyArray<Account> = new Array<Account>()
   private repositories: ReadonlyArray<Repository> = new Array<Repository>()
   private recentRepositories: ReadonlyArray<number> = new Array<number>()
+  private openRepositoryTabIDs: ReadonlyArray<number> = getNumberArray(
+    OpenRepositoryTabsKey
+  )
 
   private selectedRepository: Repository | CloningRepository | null = null
 
@@ -1019,6 +1023,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     this.repositoriesStore.onDidUpdate(updateRepositories => {
       this.repositories = updateRepositories
+      this.syncOpenRepositoryTabs()
       this.updateRepositorySelectionAfterRepositoriesChanged()
       this.emitUpdate()
     })
@@ -1154,6 +1159,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       windowZoomFactor: this.windowZoomFactor,
       appIsFocused: this.appIsFocused,
       selectedState: this.getSelectedState(),
+      openRepositoryTabs: this.getOpenRepositoryTabs(),
       signInState: this.signInStore.getState(),
       currentPopup: this.popupManager.currentPopup,
       allPopups: this.popupManager.allPopups,
@@ -2017,6 +2023,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
       this.currentOnboardingTutorialStep = TutorialStep.NotApplicable
     }
 
+    if (repository instanceof Repository) {
+      this.addOpenRepositoryTab(repository)
+    }
+
     this.selectedRepository = repository
 
     this.emitUpdate()
@@ -2092,6 +2102,62 @@ export class AppStore extends TypedBaseStore<IAppState> {
       this.repositories.filter(r => this.recentRepositories.includes(r.id))
     )
     this.emitUpdate()
+  }
+
+  private getOpenRepositoryTabs(): ReadonlyArray<Repository> {
+    const repositoriesById = new Map(
+      this.repositories.map(repo => [repo.id, repo])
+    )
+    const openTabs = new Array<Repository>()
+
+    for (const repositoryID of this.openRepositoryTabIDs) {
+      const repository = repositoriesById.get(repositoryID)
+      if (repository !== undefined) {
+        openTabs.push(repository)
+      }
+    }
+
+    return openTabs
+  }
+
+  private setOpenRepositoryTabIDs(repositoryIDs: ReadonlyArray<number>) {
+    this.openRepositoryTabIDs = repositoryIDs
+    setNumberArray(OpenRepositoryTabsKey, repositoryIDs)
+  }
+
+  private addOpenRepositoryTab(repository: Repository) {
+    if (this.openRepositoryTabIDs.includes(repository.id)) {
+      return
+    }
+
+    this.setOpenRepositoryTabIDs([...this.openRepositoryTabIDs, repository.id])
+  }
+
+  private syncOpenRepositoryTabs() {
+    const validRepositoryIDs = new Set(this.repositories.map(repo => repo.id))
+    const nextOpenRepositoryTabIDs = this.openRepositoryTabIDs.filter(id =>
+      validRepositoryIDs.has(id)
+    )
+
+    if (
+      this.selectedRepository instanceof Repository &&
+      validRepositoryIDs.has(this.selectedRepository.id) &&
+      !nextOpenRepositoryTabIDs.includes(this.selectedRepository.id)
+    ) {
+      nextOpenRepositoryTabIDs.push(this.selectedRepository.id)
+    }
+
+    if (
+      nextOpenRepositoryTabIDs.length === this.openRepositoryTabIDs.length &&
+      nextOpenRepositoryTabIDs.every(
+        (repositoryID, index) =>
+          repositoryID === this.openRepositoryTabIDs[index]
+      )
+    ) {
+      return
+    }
+
+    this.setOpenRepositoryTabIDs(nextOpenRepositoryTabIDs)
   }
 
   // finish `_selectRepository`s refresh tasks
@@ -2775,6 +2841,42 @@ export class AppStore extends TypedBaseStore<IAppState> {
       this._selectRepository(newSelectedRepository)
       this.emitUpdate()
     }
+  }
+
+  public async _closeOpenRepositoryTab(repository: Repository): Promise<void> {
+    const closingRepositoryIndex = this.openRepositoryTabIDs.indexOf(
+      repository.id
+    )
+
+    if (closingRepositoryIndex === -1) {
+      return
+    }
+
+    const nextOpenRepositoryTabIDs = this.openRepositoryTabIDs.filter(
+      repositoryID => repositoryID !== repository.id
+    )
+
+    this.setOpenRepositoryTabIDs(nextOpenRepositoryTabIDs)
+
+    if (
+      this.selectedRepository instanceof Repository &&
+      this.selectedRepository.id === repository.id
+    ) {
+      const nextRepositoryID =
+        nextOpenRepositoryTabIDs[closingRepositoryIndex] ??
+        nextOpenRepositoryTabIDs[closingRepositoryIndex - 1] ??
+        null
+
+      const nextRepository =
+        nextRepositoryID === null
+          ? null
+          : this.repositories.find(r => r.id === nextRepositoryID) ?? null
+
+      await this._selectRepository(nextRepository)
+      return
+    }
+
+    this.emitUpdate()
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
